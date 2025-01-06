@@ -254,7 +254,7 @@ class POProcessor:
                     transformed_record
                 ]
             }
-            response = requests.post('https://ciparthenon-api.azurewebsites.net/apiRequest?account=dmvtsynapse&route=data/818077/insert?api_version=2022.01',json=json)
+            response = requests.post('https://ciparthenon-api.azurewebsites.net/apiRequest?account=dmvtsynapse&route=data/816530/insert?api_version=2022.01',json=json)
 
             print(response.json())
             
@@ -270,7 +270,7 @@ class POProcessor:
                 ]
             }
 
-            response = requests.post('https://ciparthenon-api.azurewebsites.net/apiRequest?account=dmvtsynapse&route=data/818073/insert?api_version=2022.01',json=json_xml)
+            response = requests.post('https://ciparthenon-api.azurewebsites.net/apiRequest?account=dmvtsynapse&route=data/816118/insert?api_version=2022.01',json=json_xml)
             print(response.json())
             #DataScript.get_output_table('xml_format_table').insert_rows(xml_format_record)
             xml_record = self.generate_dynamic_xml(xml_format_record)
@@ -283,7 +283,7 @@ class POProcessor:
                     {"<!--This is a comment-->":xml_record}
                 ]
             }
-            response = requests.post('https://ciparthenon-api.azurewebsites.net/apiRequest?account=dmvtsynapse&route=data/818074/insert?api_version=2022.01',json=json_final_xml)
+            response = requests.post('https://ciparthenon-api.azurewebsites.net/apiRequest?account=dmvtsynapse&route=data/816165/insert?api_version=2022.01',json=json_final_xml)
             print(response.json())
             #DataScript.get_output_table('xml_output_table').insert_rows([{'<!--This is a comment-->': xml_record}])
             
@@ -302,7 +302,7 @@ class POProcessor:
                     completed_record
                 ]
             }
-            response = requests.post('https://ciparthenon-api.azurewebsites.net/apiRequest?account=dmvtsynapse&route=data/818076/insert?api_version=2022.01',json=json_complete_record)
+            response = requests.post('https://ciparthenon-api.azurewebsites.net/apiRequest?account=dmvtsynapse&route=data/816494/insert?api_version=2022.01',json=json_complete_record)
             print(response.json())
             #DataScript.get_output_table('updated_input_table').insert_rows([completed_record])
 
