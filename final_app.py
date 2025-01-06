@@ -512,6 +512,7 @@ class POProcessorValidation:
             sftp = paramiko.SFTPClient.from_transport(transport)
             order_id_match = re.search(r"<OrderID>(.*?)</OrderID>", file_content)
             order_id = order_id_match.group(1)
+            updated_input_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW", engine="openpyxl")
             matching_record = updated_input_table[updated_input_table['Order_ID'] == order_id]
 
             # Extract OrderID from file content
