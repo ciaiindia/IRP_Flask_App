@@ -660,7 +660,107 @@ class POProcessorValidation:
             return False
 
 
-from flask import Flask, jsonify
+def transfer_file_to_ics():
+    # Source SFTP server details
+    source_hostname = 'customerinsights-ai.smartfile.com'
+    source_port = 22
+    source_username = 'customerinsights-ai'
+    source_password = 'C2}8JDv\Qt7H'
+    source_remote_path = '/Dermavant/IRP_Testing/PO_Orders/Synapse_Test/3_PROCESSED'
+
+    dest_remote_path = '/Dermavant/IRP_Testing/PO_Orders/Synapse_Test/3_PROCESSED/Archive'
+
+    base_url = 'https://sftp.absg.com'
+    username = 'DermavantSftp'
+    password = 'w9W=J3#abFznKkjX'
+
+    # Create SSH clients for source and destination servers
+    source_transport = paramiko.Transport((source_hostname, 22))
+    source_transport.connect(username=source_username, password=source_password)
+    source_sftp = paramiko.SFTPClient.from_transport(source_transport)
+
+    # Download file from source SFTP
+    xml_files = [file_name for file_name in source_sftp.listdir(source_remote_path) if file_name.endswith('.xml')]
+    print(xml_files)
+
+    success_files = []
+    comments = []
+    for xml_file in xml_files:
+        print('start on', xml_file)
+        file_comment = {}
+        file_comment['filename'] = xml_file
+        comment = ""
+        for i in range(10):
+            try:
+                with source_sftp.file(f"{source_remote_path}/{xml_file}", 'r') as source_file:
+                    file_content = source_file.read()
+
+                token_url = f"{base_url}/api/v1/token"
+                token_data = {
+                    'grant_type': 'password',
+                    'username': username,
+                    'password': password,
+                }
+                token_response = requests.post(token_url, data=token_data)
+                token = token_response.json().get('access_token')
+                print('token',token_response.status_code, token_response.json())
+                if token_response.status_code != 200:
+                    comment = "token request failed: "+ token_response.text
+                    continue
+                else:
+                    file_url = f"{base_url}/api/v1/folders/132065798/files" #CIAI_TEST
+                    #file_url = f"{base_url}/api/v1/folders/931648856/files" #Inbound
+                    headers = {
+                        'Authorization': f'Bearer {token}',
+                    }
+                    files = {'file': ("TEST_AK_"+xml_file,file_content)}
+                    #files = {'file': (xml_file,file_content)}
+                    response = requests.post(file_url, headers=headers,files=files)
+                    print(response.status_code, response.text)
+                    if response.status_code != 201:
+                        comment = "upload response failed: "+ response.text
+                        continue
+                    else:
+                        with source_sftp.file(f"{dest_remote_path}/{xml_file}", 'w') as dest_file:
+                            dest_file.write(file_content)
+                        time.sleep(10)
+                        if xml_file in source_sftp.listdir(dest_remote_path):
+                            source_sftp.remove(f"{source_remote_path}/{xml_file}")
+                            print('success:',xml_file)
+                            success_files.append(xml_file)
+                            comment = 'success'
+                            break
+                        else:
+                            comment = 'file move to PROCESSED folder failed'
+                            continue
+            except Exception as e: 
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(exc_type, fname, exc_tb.tb_lineno)
+                print(str(e))
+                time.sleep(10)
+                print('try again',i)
+                comment = str(e)
+        file_comment['comment'] = comment
+        comments.append(file_comment)
+    print(comments)
+    # Close SFTP sessions and SSH connections
+    source_sftp.close()
+    source_transport.close()
+
+    if success_files == xml_files:
+        status = 'success'
+    elif len(success_files) == 0:
+        status = 'failed'
+    else:
+        status = 'partially success'
+
+    json_result = {'status':status,'files':','.join(success_files),'comment':comments}
+    string_result = json.dumps(json_result)
+    return string_result
+
+
+from flask import Flask, jsonify,make_response
 import pandas as pd
 import os
 import time
@@ -749,6 +849,15 @@ def internal_error(error):
 @app.route('/test_connection', methods=['GET'])
 def test_connection():
     return "Connection successful", 200
+
+@app.route('/transfer_xml_from_ciai_to_ics_test',methods = ['GET'])
+def transfer_xml_from_ciai_to_ics():
+    
+    response = make_response()
+    output=transfer_file_to_ics()
+    response.data = output
+
+    return response
 
 
 if __name__ == '__main__':
