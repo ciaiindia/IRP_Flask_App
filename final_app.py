@@ -317,6 +317,45 @@ class POProcessor:
         if not processed:
             print("No unprocessed records found.")
         print("Processing completed.")
+        
+    def monitor_and_process(self):
+        """
+        Continuously monitor the input table for new records and process them.
+        """
+        print("Monitoring input table for new records...")
+        
+        # Track previously processed Unique_Keys
+        updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",engine='openpyxl')
+        processed_keys = set(updated_table['Unique_Key'])
+        print(processed_keys)
+        
+        while True:
+            # Reload the input table
+            try:
+                current_input = pd.read_excel("https://dermavant.customerinsights.ai/ds/yFZXNJAXtDsSZlo",engine='openpyxl')
+                current_input['Unique_Key'] = (
+                    current_input['Order_P.O_Number'].astype(str).str.strip() + '_' +
+                    current_input['Pharmacy_NPI'].astype(str).str.strip() + '_' +
+                    current_input['Date_Time_Stamp'].astype(str).str.strip()
+                )
+            except Exception as e:
+                print(f"Error loading input table: {e}")
+                break
+            
+            # Identify new records
+            new_records = current_input[~current_input['Unique_Key'].isin(processed_keys)]
+            
+            if not new_records.empty:
+                print(f"New records found: {len(new_records)}")
+                self.input_file = current_input  # Update the current input table
+                self.start_processing()  # Re-run the process
+                processed_keys.update(new_records['Unique_Key'])  # Update processed keys
+            else:
+                print("No new records found. Exiting monitoring...")
+                break
+            
+            # Wait for a specific interval before checking again
+            time.sleep(self.wait_time)
 
 import pandas as pd
 from xml.etree.ElementTree import fromstring, ParseError
@@ -791,7 +830,7 @@ def generate_xml():
         processor = POProcessor(input_file, xml_template_path)
         
         # Start processing
-        processed = processor.start_processing()
+        processed = processor.monitor_and_process()
         
         if processed:
             response = {
