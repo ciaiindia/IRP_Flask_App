@@ -799,6 +799,87 @@ def transfer_file_to_ics():
     return string_result
 
 
+class WorkflowManager:
+    def __init__(self):
+        input_file = 'ICS_PO_Form'
+        xml_template_path = 'RPT_PO_FORMAT'
+        self.po_processor = POProcessor(input_file, xml_template_path)
+        self.validator = POProcessorValidation(
+            sftp_host="customerinsights-ai.smartfile.com",
+            sftp_port=22,
+            sftp_username="customerinsights-ai",
+            sftp_password="C2}8JDv\\Qt7H"
+        )
+        self.processed_keys = set()
+
+    def check_new_orders(self):
+        """Check for new orders by comparing with previously processed keys."""
+        try:
+            # Load current input table
+            current_input = pd.read_excel("https://dermavant.customerinsights.ai/ds/yFZXNJAXtDsSZlo",engine='openpyxl')
+            current_input['Unique_Key'] = (
+                current_input['Order_P.O_Number'].astype(str).str.strip() + '_' +
+                current_input['Pharmacy_NPI'].astype(str).str.strip() + '_' +
+                current_input['Date_Time_Stamp'].astype(str).str.strip()
+            )
+            
+            # Load processed records
+            updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW", engine="openpyxl")
+            self.processed_keys = set(updated_table['Unique_Key'])
+            
+            # Check for new records
+            new_records = current_input[~current_input['Unique_Key'].isin(self.processed_keys)]
+            return not new_records.empty
+        except Exception as e:
+            logger.error(f"Error checking for new orders: {e}")
+            return False
+
+    def run_complete_workflow(self):
+        """Check for new records and run the complete workflow if records exist."""
+        try:
+            # Step 1: Check for new orders
+            logger.info("Checking for new orders before starting the workflow...")
+            if not self.check_new_orders():
+                logger.info("No new orders found. Exiting workflow.")
+                return {"status": "success", "message": "No new orders found. Workflow did not execute."}
+
+            while True:
+                # Step 2: XML Generation
+                logger.info("Starting XML generation...")
+                self.po_processor.start_processing()
+
+                # Step 3: Validation
+                logger.info("Starting validation...")
+                updated_input_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW", engine="openpyxl")
+                self.validator.process_all_files_in_directory(
+                    "/Dermavant/IRP_Testing/PO_Orders/Synapse_Test/1_VALIDATION",
+                    updated_input_table
+                )
+
+                # Step 4: Transfer to ICS
+                logger.info("Starting transfer to ICS...")
+                transfer_file_to_ics()
+
+                # Check for new orders after processing
+                logger.info("Checking for new orders after processing...")
+                if not self.check_new_orders():
+                    logger.info("No new orders found. Workflow complete.")
+                    break  # Exit the loop if no new orders are found
+                else:
+                    logger.info("New orders found. Restarting workflow...")
+                    continue
+
+            return {"status": "success", "message": "Complete workflow finished successfully"}
+
+        except Exception as e:
+            logger.error(f"Error in workflow: {e}")
+            return {"status": "error", "message": str(e)}
+
+
+# Initialize the workflow manager
+workflow_manager = WorkflowManager()
+
+
 from flask import Flask, jsonify,make_response
 import pandas as pd
 import os
@@ -898,6 +979,26 @@ def transfer_xml_from_ciai_to_ics():
 
     return response
 
+@app.route('/complete_workflow', methods=['GET'])
+def run_complete_workflow():
+    try:
+        logger.info("Starting complete workflow")
+        initial = time.time()
+        
+        result = workflow_manager.run_complete_workflow()
+        
+        final = time.time()
+        total_time = final - initial
+        logger.info(f"Total time taken: {total_time}")
+        
+        return jsonify(result), 200 if result["status"] == "success" else 500
+    
+    except Exception as e:
+        logger.error(f"Error during complete workflow execution: {str(e)}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'message': f'Complete workflow failed: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
