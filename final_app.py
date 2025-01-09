@@ -797,8 +797,7 @@ def transfer_file_to_ics():
     json_result = {'status':status,'files':','.join(success_files),'comment':comments}
     string_result = json.dumps(json_result)
     return string_result
-
-
+    
 class WorkflowManager:
     def __init__(self):
         input_file = 'ICS_PO_Form'
@@ -812,72 +811,95 @@ class WorkflowManager:
         )
         self.processed_keys = set()
 
-    def check_new_orders(self):
-        """Check for new orders by comparing with previously processed keys."""
+    def monitor_and_process(self):
+        """
+        Continuously monitor the input table for new records and process them, including validation.
+        """
+        print("Monitoring input table for new records...")
+
+        # Track previously processed Unique_Keys
         try:
-            # Load current input table
-            current_input = pd.read_excel("https://dermavant.customerinsights.ai/ds/yFZXNJAXtDsSZlo",engine='openpyxl')
-            current_input['Unique_Key'] = (
-                current_input['Order_P.O_Number'].astype(str).str.strip() + '_' +
-                current_input['Pharmacy_NPI'].astype(str).str.strip() + '_' +
-                current_input['Date_Time_Stamp'].astype(str).str.strip()
-            )
-            
-            # Load processed records
-            updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW", engine="openpyxl")
+            updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",engine='openpyxl')
             self.processed_keys = set(updated_table['Unique_Key'])
-            
-            # Check for new records
-            new_records = current_input[~current_input['Unique_Key'].isin(self.processed_keys)]
-            return not new_records.empty
+            print(f"Loaded processed keys: {self.processed_keys}")
         except Exception as e:
-            logger.error(f"Error checking for new orders: {e}")
-            return False
+            print(f"Error loading updated table: {e}")
+            self.processed_keys = set()
+
+        while True:
+            try:
+                # Reload the input table
+                current_input =  pd.read_excel("https://dermavant.customerinsights.ai/ds/yFZXNJAXtDsSZlo",engine='openpyxl')
+                current_input['Unique_Key'] = (
+                    current_input['Order_P.O_Number'].astype(str).str.strip() + '_' +
+                    current_input['Pharmacy_NPI'].astype(str).str.strip() + '_' +
+                    current_input['Date_Time_Stamp'].astype(str).str.strip()
+                )
+            except Exception as e:
+                print(f"Error loading input table: {e}")
+                return {"status": "error", "message": f"Error loading input table: {e}"}
+                break
+
+            # Identify new records
+            new_records = current_input[~current_input['Unique_Key'].isin(self.processed_keys)]
+            if not new_records.empty:
+                print(f"New records found: {len(new_records)}")
+
+                try:# Step 1: XML Processing
+                    self.po_processor.input_file = current_input  # Update the current input table
+                    self.po_processor.start_processing() 
+                except Exception as processing_error:
+                    return {"status": "error", "message": f"Error during XML processing: {processing_error}"} # Process XML
+
+                # Step 2: Validation
+                try:
+                    updated_input_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",engine='openpyxl')
+                    self.validator.process_all_files_in_directory(
+                        "/Dermavant/IRP_Testing/PO_Orders/Synapse_Test/1_VALIDATION",
+                        updated_input_table
+                    )
+                except Exception as validation_error:
+                    print(f"Validation error: {validation_error}")
+                    return {"status": "error", "message": f"Error during validation: {validation_error}"}
+                
+                try:
+                    print("Starting transfer to ICS...")
+                    output = transfer_file_to_ics()
+                    response = make_response(output, 200)
+                    response.headers["Content-Type"] = "application/json"
+                    return response
+                    #print(f"Transfer to ICS completed with result: {transfer_result}")
+                except Exception as transfer_error:
+                    print(f"Error during file transfer to ICS: {transfer_error}")
+                    return {"status": "error", "message": f"Error during file transfer to ICS: {transfer_error}"}               
+
+                # Mark records as processed
+                self.processed_keys.update(new_records['Unique_Key'])
+            else:
+                print("No new records found. Exiting monitoring...")
+                break
+
+            # Wait for a specific interval before checking again
+            time.sleep(self.po_processor.wait_time)
+        return {"status": "success", "message": "Workflow monitoring and processing completed successfully"}
 
     def run_complete_workflow(self):
-        """Check for new records and run the complete workflow if records exist."""
+        """
+        Continuously monitor and process input records.
+        """
         try:
-            # Step 1: Check for new orders
-            logger.info("Checking for new orders before starting the workflow...")
-            if not self.check_new_orders():
-                logger.info("No new orders found. Exiting workflow.")
-                return {"status": "success", "message": "No new orders found. Workflow did not execute."}
-
-            while True:
-                # Step 2: XML Generation
-                logger.info("Starting XML generation...")
-                self.po_processor.start_processing()
-
-                # Step 3: Validation
-                logger.info("Starting validation...")
-                updated_input_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW", engine="openpyxl")
-                self.validator.process_all_files_in_directory(
-                    "/Dermavant/IRP_Testing/PO_Orders/Synapse_Test/1_VALIDATION",
-                    updated_input_table
-                )
-
-                # Step 4: Transfer to ICS
-                logger.info("Starting transfer to ICS...")
-                transfer_file_to_ics()
-
-                # Check for new orders after processing
-                logger.info("Checking for new orders after processing...")
-                if not self.check_new_orders():
-                    logger.info("No new orders found. Workflow complete.")
-                    break  # Exit the loop if no new orders are found
-                else:
-                    logger.info("New orders found. Restarting workflow...")
-                    continue
-
-            return {"status": "success", "message": "Complete workflow finished successfully"}
-
+            print("Starting complete workflow...")
+            result=self.monitor_and_process()
+            if result is None:
+                result = {"status": "error", "message": "Unknown error occurred during workflow"}
+            return result    
+            # print("Complete workflow finished successfully.")
+            # return {"status": "success", "message": "Workflow completed successfully"}
         except Exception as e:
-            logger.error(f"Error in workflow: {e}")
+            print(f"Error during complete workflow execution: {e}")
             return {"status": "error", "message": str(e)}
 
 
-# Initialize the workflow manager
-workflow_manager = WorkflowManager()
 
 
 from flask import Flask, jsonify,make_response
@@ -911,7 +933,7 @@ def generate_xml():
         processor = POProcessor(input_file, xml_template_path)
         
         # Start processing
-        processed = processor.monitor_and_process()
+        processed = processor.start_processing()
         
         if processed:
             response = {
@@ -984,8 +1006,9 @@ def run_complete_workflow():
     try:
         logger.info("Starting complete workflow")
         initial = time.time()
+        workflow_manager = WorkflowManager()
         
-        result = workflow_manager.run_complete_workflow()
+        result = workflow_manager.monitor_and_process()
         
         final = time.time()
         total_time = final - initial
