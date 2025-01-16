@@ -290,6 +290,7 @@ class POProcessor:
             # Create a complete record with status
             completed_record = record.to_dict()
             completed_record['status'] = 'completed'
+            completed_record['validation_status'] ='Placed in validation'
             completed_record['Order_ID'] = transformed_record['Order_ID']
             order_date_complete = pd.to_datetime(completed_record['Order_Date']).strftime('%Y-%m-%d')
             date_time_stamp_complete = pd.to_datetime(completed_record['Date_Time_Stamp']).strftime('%Y-%m-%d %H:%M:%S')
@@ -498,7 +499,7 @@ class POProcessorValidation:
             # Concatenate fields for the matching record
             concat_transformed = (
                 str(matching_record['Pharmacy_NPI'].values[0]).strip() +
-                str(matching_record['Order_P.O_Number'].values[0]).strip() +
+                str(matching_record['Order_P.O_Number'].values[0])[:20].strip() +
                 str(matching_record['Quantity'].values[0]).strip() +
                 str(matching_record['Order_ID'].values[0]).strip() +
                 pd.to_datetime(matching_record['Order_Date'].values[0]).strftime('%Y%m%d')
@@ -595,14 +596,17 @@ class POProcessorValidation:
                 if validations['existing_validation'] and (validations['orderid_match'] and validations['timestamp_match']):
                     target_path = f"{processed_path}/{file_name}"
                     file_success = True
+                    new_validation_status = 'Placed in Processed'
                     print("Moving to PROCESSED - validation checks passed")
                 else:
                     target_path = f"{review_path}/{file_name}"
                     print(f"Validation failed for OrderID: {order_id_from_file}. Moving to READYTOREVIEW.")
+                    new_validation_status = 'Placed in Review'
                     file_success = False
             else:
                 target_path = f"{review_path}/{file_name}"
                 print(f"OrderID not found in file. Moving to READYTOREVIEW.")
+                new_validation_status = 'Placed in Review'
                 file_success = False
             if target_path:
             # Write the file to the target folder
@@ -613,6 +617,34 @@ class POProcessorValidation:
                 validation_file_path = f"{validation_path}/{file_name}"
                 sftp.remove(validation_file_path)
                 print(f"File moved and removed from validation folder: {file_name}")
+                if order_id and not matching_record.empty:
+                    try:
+                        # Take the existing record and update its validation status
+                        record_to_update = matching_record.iloc[0].to_dict()
+                        record_to_update['validation_status'] = new_validation_status
+                        order_date_complete_val = pd.to_datetime(record_to_update['Order_Date']).strftime('%Y-%m-%d')
+                        date_time_stamp_complete_val = pd.to_datetime(record_to_update['Date_Time_Stamp']).strftime('%Y-%m-%d %H:%M:%S')
+                        record_to_update['Order_Date'] = order_date_complete_val
+                        record_to_update['Date_Time_Stamp']=date_time_stamp_complete_val
+
+                        print(record_to_update)
+                        # record_to_update['validation_status'] = new_validation_status
+                        # Post update to API
+                        json_update = {
+                            "data": [
+                                record_to_update
+                            ]
+                        }
+                        response = requests.post(
+                            'https://ciparthenon-api.azurewebsites.net/apiRequest?account=dmvtsynapse&route=data/820414/insert?api_version=2022.01',
+                            json=json_update
+                        )
+                        print(f"Updated validation status to {new_validation_status} for Order_ID {order_id}")
+                        print(response.json())
+                    except Exception as e:
+                        print(f"Error updating validation status: {e}")
+
+
 
             # Close the SFTP connection
             sftp.close()
