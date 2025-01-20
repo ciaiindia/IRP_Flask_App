@@ -72,14 +72,14 @@ class POProcessor:
 
     def _get_last_order_id(self) -> int:
         """Retrieve the last generated Order_ID from all possible sources."""
-        last_id = 0
+        last_id = 4999
         
         try:
             # Check updated_input_table
             updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",engine='openpyxl')
             if not updated_table.empty and 'Order_ID' in updated_table.columns:
                 numeric_order_ids = pd.to_numeric(
-                    updated_table['Order_ID'].str.extract(r'TEST(\d+)')[0], 
+                    updated_table['Order_ID'].str.extract(r'CIAI(\d+)')[0], 
                     errors='coerce'
                 )
                 if not numeric_order_ids.empty and not numeric_order_ids.isna().all():
@@ -92,7 +92,7 @@ class POProcessor:
             latest_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/n3t6XG40369gwlr",engine='openpyxl')
             if not latest_table.empty and 'Order_ID' in latest_table.columns:
                 numeric_order_ids = pd.to_numeric(
-                    latest_table['Order_ID'].str.extract(r'TEST(\d+)')[0], 
+                    latest_table['Order_ID'].str.extract(r'CIAI(\d+)')[0], 
                     errors='coerce'
                 )
                 if not numeric_order_ids.empty and not numeric_order_ids.isna().all():
@@ -100,13 +100,13 @@ class POProcessor:
         except Exception as e:
             print(f"Error checking latest_record_table: {e}")
 
-        print(f"Retrieved last Order_ID: TEST{str(last_id).zfill(11)}")
+        print(f"Retrieved last Order_ID: CIAI{str(last_id).zfill(11)}")
         return last_id
 
     def generate_order_id(self) -> str:
         """Generate a unique Order_ID."""
         self.last_order_id += 1
-        new_order_id = f"TEST{str(self.last_order_id).zfill(11)}"
+        new_order_id = f"CIAI{str(self.last_order_id).zfill(11)}"
         print(f"Generated new Order_ID: {new_order_id}")
         return new_order_id
 
@@ -407,7 +407,7 @@ class POProcessorValidation:
         """Extract OrderID (TEST...) and timestamp (2024...) from filename with format Dermavant_ICS_PickReq_TEST{numbers}_2024{numbers}.xml"""
         try:
             # Pattern to match the exact format
-            pattern = r'Dermavant_ICS_PickReq_(TEST\d+)_(\d{14})'
+            pattern = r'Dermavant_ICS_PickReq_(CIAI\d+)_(\d{14})'
             match = re.search(pattern, filename)
             
             if match:
@@ -625,6 +625,8 @@ class POProcessorValidation:
                         order_date_complete_val = pd.to_datetime(record_to_update['Order_Date']).strftime('%Y-%m-%d')
                         date_time_stamp_complete_val = pd.to_datetime(record_to_update['Date_Time_Stamp']).strftime('%Y-%m-%d %H:%M:%S')
                         record_to_update['Order_Date'] = order_date_complete_val
+                        updated_date_at = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                        record_to_update['Updated_AT'] = updated_date_at
                         record_to_update['Date_Time_Stamp']=date_time_stamp_complete_val
 
                         print(record_to_update)
