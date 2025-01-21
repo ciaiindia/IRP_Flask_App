@@ -123,7 +123,9 @@ class POProcessor:
     def transform_record(self, record: pd.Series) -> dict:
         """Transform a single record."""
         formatted_order_id = self.generate_order_id()
-        formatted_po_number = self.format_po_number(record.get('Order_P.O_Number', 'UNKNOWN_PO'))
+        po_number = str(record.get('Order_P.O_Number', 'UNKNOWN_PO'))
+        formatted_po_number = self.format_po_number(po_number)
+        #formatted_po_number = self.format_po_number(record.get('Order_P.O_Number', 'UNKNOWN_PO'))
         order_date = pd.to_datetime(record['Order_Date']).strftime('%Y-%m-%d')
         date_time_stamp = pd.to_datetime(record['Date_Time_Stamp']).strftime('%Y-%m-%d %H:%M:%S')
         formatted_datetime = self.format_datetime(pd.to_datetime(record['Date_Time_Stamp']))
