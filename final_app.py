@@ -114,7 +114,7 @@ class POProcessor:
         """Truncate PO number to 20 characters and ensure it is a string."""
         if pd.isnull(po_number) or str(po_number).strip() == "":
             return "UNKNOWN_PO"
-        return str(po_number)[:20]
+        return str(po_number).strip()[:20]
 
     def format_datetime(self, dt: datetime) -> str:
         """Format datetime to 'yyddmmhhmmss' format."""
@@ -178,7 +178,7 @@ class POProcessor:
             'Medusa/Info/CustomerID': transformed_record['Pharmacy_NPI'],
             'Medusa/Info/OrderID': transformed_record['Order_ID'],
             'Medusa/Info/OrderHeader/OrderDate': formatted_order_date,
-            'Medusa/Info/OrderHeader/OrderReference': str(transformed_record['Order_P.O_Number']),
+            'Medusa/Info/OrderHeader/OrderReference': self.format_po_number(transformed_record['Order_P.O_Number']),
             'Medusa/Info/OrderDetail/OrderDate': formatted_order_date,
             'Medusa/Info/OrderDetail/ProductCode': '81672505101',  # Static value
             'Medusa/Info/OrderDetail/Quantity': transformed_record['Quantity'],
@@ -197,7 +197,7 @@ class POProcessor:
         self.input_file['Date_Time_Stamp'].fillna('UNKNOWN_DATE', inplace=True)
 
         self.input_file['Unique_Key'] = (
-            self.input_file['Order_P.O_Number'].astype(str).str.strip() + '_' +
+            self.input_file['Order_P.O_Number'].apply(self.format_po_number).str.strip() + '_' +
             self.input_file['Pharmacy_NPI'].astype(str).str.strip() + '_' +
             self.input_file['Date_Time_Stamp'].astype(str).str.strip()
         )
