@@ -30,7 +30,7 @@ class POProcessor:
         self.sftp_upload_path = "/Dermavant/IRP_Testing/PO_Orders/Synapse_Test/1_VALIDATION"
 
         # Load input file and XML template
-        self.input_file = pd.read_excel("https://dermavant.customerinsights.ai/ds/yFZXNJAXtDsSZlo",engine='openpyxl')
+        self.input_file = pd.read_excel("https://dermavant.customerinsights.ai/ds/yFZXNJAXtDsSZlo",dtype={"Order_P.O_Number": str},engine='openpyxl')
         print("\nInput File Contents:")
         print(self.input_file.head(10))  # Print the first 10 rows of the input file
         print(f"\nTotal rows in Input File: {len(self.input_file)}")
