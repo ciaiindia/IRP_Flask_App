@@ -112,7 +112,7 @@ class POProcessor:
 
     def format_po_number(self, po_number: str) -> str:
         """Truncate PO number to 20 characters and ensure it is a string."""
-        if pd.isnull(po_number) or po_number.strip() == "":
+        if pd.isnull(po_number) or str(po_number).strip() == "":
             return "UNKNOWN_PO"
         return str(po_number)[:20]
 
