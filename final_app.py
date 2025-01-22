@@ -76,7 +76,7 @@ class POProcessor:
         
         try:
             # Check updated_input_table
-            updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",engine='openpyxl')
+            updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",dtype={"Order_P.O_Number": str},engine='openpyxl')
             if not updated_table.empty and 'Order_ID' in updated_table.columns:
                 numeric_order_ids = pd.to_numeric(
                     updated_table['Order_ID'].str.extract(r'CIAI(\d+)')[0], 
@@ -89,7 +89,7 @@ class POProcessor:
 
         try:
             # Also check latest_record_table
-            latest_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/n3t6XG40369gwlr",engine='openpyxl')
+            latest_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/n3t6XG40369gwlr",dtype={"Order_P.O_Number": str},engine='openpyxl')
             if not latest_table.empty and 'Order_ID' in latest_table.columns:
                 numeric_order_ids = pd.to_numeric(
                     latest_table['Order_ID'].str.extract(r'CIAI(\d+)')[0], 
@@ -204,7 +204,7 @@ class POProcessor:
 
         # Load the updated table
         try:
-            updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",engine='openpyxl')
+            updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",dtype={"Order_P.O_Number": str},engine='openpyxl')
             print(f"updated table is {updated_table.head(5)}")
             print(f"updated table column are {updated_table.columns}")
         except Exception as e:
@@ -328,14 +328,14 @@ class POProcessor:
         print("Monitoring input table for new records...")
         
         # Track previously processed Unique_Keys
-        updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",engine='openpyxl')
+        updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",dtype={"Order_P.O_Number": str},engine='openpyxl')
         processed_keys = set(updated_table['Unique_Key'])
         print(processed_keys)
         
         while True:
             # Reload the input table
             try:
-                current_input = pd.read_excel("https://dermavant.customerinsights.ai/ds/yFZXNJAXtDsSZlo",engine='openpyxl')
+                current_input = pd.read_excel("https://dermavant.customerinsights.ai/ds/yFZXNJAXtDsSZlo",dtype={"Order_P.O_Number": str},engine='openpyxl')
                 current_input['Unique_Key'] = (
                     current_input['Order_P.O_Number'].astype(str).str.strip() + '_' +
                     current_input['Pharmacy_NPI'].astype(str).str.strip() + '_' +
@@ -554,7 +554,7 @@ class POProcessorValidation:
             sftp = paramiko.SFTPClient.from_transport(transport)
             order_id_match = re.search(r"<OrderID>(.*?)</OrderID>", file_content)
             order_id = order_id_match.group(1)
-            updated_input_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW", engine="openpyxl")
+            updated_input_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW", dtype={"Order_P.O_Number": str},engine="openpyxl")
             matching_record = updated_input_table[updated_input_table['Order_ID'] == order_id]
 
             # Extract OrderID from file content
@@ -855,7 +855,8 @@ class WorkflowManager:
 
         # Track previously processed Unique_Keys
         try:
-            updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",engine='openpyxl')
+            updated_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",dtype={"Order_P.O_Number": str},engine='openpyxl')
+            print(updated_table['Order_P.O_Number'].head())
             self.processed_keys = set(updated_table['Unique_Key'])
             print(f"Loaded processed keys: {self.processed_keys}")
         except Exception as e:
@@ -865,7 +866,8 @@ class WorkflowManager:
         while True:
             try:
                 # Reload the input table
-                current_input =  pd.read_excel("https://dermavant.customerinsights.ai/ds/yFZXNJAXtDsSZlo",engine='openpyxl')
+                current_input =  pd.read_excel("https://dermavant.customerinsights.ai/ds/yFZXNJAXtDsSZlo",dtype={"Order_P.O_Number": str},engine='openpyxl')
+                print(current_input['Order_P.O_Number'].head())
                 current_input['Unique_Key'] = (
                     current_input['Order_P.O_Number'].astype(str).str.strip() + '_' +
                     current_input['Pharmacy_NPI'].astype(str).str.strip() + '_' +
@@ -889,7 +891,7 @@ class WorkflowManager:
 
                 # Step 2: Validation
                 try:
-                    updated_input_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",engine='openpyxl')
+                    updated_input_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW",dtype={"Order_P.O_Number": str},engine='openpyxl')
                     self.validator.process_all_files_in_directory(
                         "/Dermavant/IRP_Testing/PO_Orders/Synapse_Test/1_VALIDATION",
                         updated_input_table
@@ -1008,7 +1010,7 @@ def validate_files():
             sftp_password="C2}8JDv\\Qt7H",
         )
         remote_directory_path = "/Dermavant/IRP_Testing/PO_Orders/Synapse_Test/1_VALIDATION"
-        updated_input_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW", engine="openpyxl")
+        updated_input_table = pd.read_excel("https://dermavant.customerinsights.ai/ds/L9W9ozHKFtSJ8aW", dtype={"Order_P.O_Number": str},engine="openpyxl")
         processor.process_all_files_in_directory(remote_directory_path, updated_input_table)
         return jsonify({"status": "success", "message": "Validation completed"}), 200
     except Exception as e:
