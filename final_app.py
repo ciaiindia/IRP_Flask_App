@@ -783,13 +783,13 @@ def transfer_file_to_ics():
                     comment = "token request failed: "+ token_response.text
                     continue
                 else:
-                    file_url = f"{base_url}/api/v1/folders/132065798/files" #CIAI_TEST
-                    #file_url = f"{base_url}/api/v1/folders/931648856/files" #Inbound
+                    # file_url = f"{base_url}/api/v1/folders/132065798/files" #CIAI_TEST
+                    file_url = f"{base_url}/api/v1/folders/931648856/files" #Inbound
                     headers = {
                         'Authorization': f'Bearer {token}',
                     }
-                    files = {'file': ("TEST_AK_"+xml_file,file_content)}
-                    #files = {'file': (xml_file,file_content)}
+                    # files = {'file': ("TEST_AK_"+xml_file,file_content)}
+                    files = {'file': (xml_file,file_content)}
                     response = requests.post(file_url, headers=headers,files=files)
                     print(response.status_code, response.text)
                     if response.status_code != 201:
