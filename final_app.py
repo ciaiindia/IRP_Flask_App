@@ -101,6 +101,8 @@ class POProcessor:
             print(f"Error checking latest_record_table: {e}")
 
         print(f"Retrieved last Order_ID: CIAI{str(last_id).zfill(11)}")
+        if last_id >= 5187:  # Your current max ID is 187
+            last_id = 5095
         return last_id
 
     def generate_order_id(self) -> str:
